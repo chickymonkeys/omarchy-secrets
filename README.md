@@ -2,7 +2,7 @@
 
 An indicator in the [Omarchy](https://omarchy.org) bar that turns your Bitwarden secrets on and off for terminals, CLIs, and coding agents.
 
-Secrets stay **off at every login**. Click the variables indicator (󰫧), type your master password into Omarchy's own password card (the one it uses for polkit), and every terminal you open, along with everything started from it, gets your API keys as environment variables. Click again and they are gone: the vault locks, the cache is cleared, and open terminals drop them at their next prompt.
+Secrets stay **off at every login**. Click the safe (󱉼), type your master password into Omarchy's own password card (the one it uses for polkit), and every terminal you open, along with everything started from it, gets your API keys as environment variables. Click again and they are gone: the vault locks, the cache is cleared, and open terminals drop them at their next prompt.
 
 Under the hood it is [rbw](https://github.com/doy/rbw) (an unofficial Bitwarden client that keeps the unlocked key in memory) and [fnox](https://fnox.jdx.dev) (which maps Bitwarden items to environment variables). Nothing secret is ever written to disk.
 
@@ -15,7 +15,7 @@ Under the hood it is [rbw](https://github.com/doy/rbw) (an unofficial Bitwarden 
 | On | the indicator is shown | open and new terminals load the secrets at their next prompt |
 | Off again | hidden | open terminals unset them at their next prompt; running programs keep what they already have |
 
-- The icon is 󰫧 (variables): it shows that your secrets are loaded as environment variables, not that something is locked. The password card shows a safe (󱉼), the Bitwarden vault you are unlocking.
+- The icon is a safe (󱉼), your Bitwarden vault: shown means the vault is open and its secrets are shared. The password card shows the same safe, which also sets it apart from Omarchy's sudo card (a padlock, your system password).
 - The tooltip says what a click does: **Unlock Secrets** or **Lock Secrets**.
 - The card behaves like Omarchy's polkit prompt: a wrong password turns it red and shakes it, with the attempt count above it ("attempt 2 of 3"); Esc cancels quietly and changes nothing.
 - Notifications only appear when something needs your attention (an error, or Bitwarden locking itself); the indicator appearing is the confirmation.
@@ -77,7 +77,7 @@ The config holds only item names, never values, so it can live in a public dotfi
 ## How it works
 
 ```
-(x) in the bar ──► bin/secrets on ──► rbw unlock ──► fnox cache warm
+safe in bar  ──► bin/secrets on ──► rbw unlock ──► fnox cache warm
                                   │      │
                                   │      └─► bin/pinentry-omarchy ──IPC──► Prompt.qml (password card)
                                   │                    ▲                          │

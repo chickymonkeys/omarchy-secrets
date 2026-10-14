@@ -3,7 +3,7 @@
 #
 # Exports the secrets in ~/.config/fnox/config.toml into this shell and
 # everything started from it, including agents, but only while the Secrets
-# toggle is on: the (x) indicator in the bar, or `secrets on|off`. Every prompt
+# toggle is on: the safe indicator in the bar, or `secrets on|off`. Every prompt
 # checks the toggle, so turning it off also unsets them in open shells.
 
 [[ $- == *i* ]] || return 0
