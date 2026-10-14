@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "chickymonkeys.secrets",
   "name": "Secrets",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "Alessandro Pizzigolotto",
   "license": "MIT",
   "description": "A bar key that turns your Bitwarden secrets (rbw + fnox) on and off for terminals, CLIs, and agents. Off at every login.",

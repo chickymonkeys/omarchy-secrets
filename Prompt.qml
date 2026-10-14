@@ -277,10 +277,13 @@ Item {
         spacing: Style.space(14)
 
         Text {
-          text: "󰌆"
+          // A safe, not polkit's lock: this asks for the Bitwarden master
+          // password, not the system one. Material glyphs draw smaller than
+          // the Font Awesome lock, so scale up to the same weight.
+          text: "󱉼"
           color: root.errorFlash ? Color.polkit.textError : root.accent
           font.family: root.fontFamily
-          font.pixelSize: Style.font.iconLarge
+          font.pixelSize: Math.round(Style.font.iconLarge * 1.4)
           width: Style.space(26)
           height: root.fieldHeight
           horizontalAlignment: Text.AlignHCenter

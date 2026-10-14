@@ -1,8 +1,8 @@
 # Omarchy Secrets
 
-A key in the [Omarchy](https://omarchy.org) bar that turns your Bitwarden secrets on and off for terminals, CLIs, and coding agents.
+An indicator in the [Omarchy](https://omarchy.org) bar that turns your Bitwarden secrets on and off for terminals, CLIs, and coding agents.
 
-Secrets stay **off at every login**. Click the key, type your master password into Omarchy's own password card (the one it uses for polkit), and every terminal you open, along with everything started from it, gets your API keys as environment variables. Click again and they are gone: the vault locks, the cache is cleared, and open terminals drop them at their next prompt.
+Secrets stay **off at every login**. Click the variables indicator (󰫧), type your master password into Omarchy's own password card (the one it uses for polkit), and every terminal you open, along with everything started from it, gets your API keys as environment variables. Click again and they are gone: the vault locks, the cache is cleared, and open terminals drop them at their next prompt.
 
 Under the hood it is [rbw](https://github.com/doy/rbw) (an unofficial Bitwarden client that keeps the unlocked key in memory) and [fnox](https://fnox.jdx.dev) (which maps Bitwarden items to environment variables). Nothing secret is ever written to disk.
 
@@ -11,15 +11,16 @@ Under the hood it is [rbw](https://github.com/doy/rbw) (an unofficial Bitwarden 
 | State | Bar | Terminals |
 | --- | --- | --- |
 | Off (every login) | hidden, like Omarchy's inactive indicators; hover the bar's center to reveal it dimmed | no secrets |
-| Unlocking | the key pulses; Omarchy's password card opens on the focused monitor | |
-| On | the key is shown | open and new terminals load the secrets at their next prompt |
+| Unlocking | the indicator pulses; Omarchy's password card opens on the focused monitor | |
+| On | the indicator is shown | open and new terminals load the secrets at their next prompt |
 | Off again | hidden | open terminals unset them at their next prompt; running programs keep what they already have |
 
+- The icon is 󰫧 (variables): it shows that your secrets are loaded as environment variables, not that something is locked. The password card shows a safe (󱉼), the Bitwarden vault you are unlocking.
 - The tooltip says what a click does: **Unlock Secrets** or **Lock Secrets**.
 - The card behaves like Omarchy's polkit prompt: a wrong password turns it red and shakes it, with the attempt count above it ("attempt 2 of 3"); Esc cancels quietly and changes nothing.
-- Notifications only appear when something needs your attention (an error, or Bitwarden locking itself); the key appearing is the confirmation.
+- Notifications only appear when something needs your attention (an error, or Bitwarden locking itself); the indicator appearing is the confirmation.
 - When rbw locks itself (its `lock_timeout`), the toggle turns off and tells you, so nothing ever asks for your password unprompted.
-- Everything the key does is also a command: `secrets on`, `secrets off`, `secrets toggle`, `secrets status`.
+- Everything the indicator does is also a command: `secrets on`, `secrets off`, `secrets toggle`, `secrets status`.
 
 ## Install
 
@@ -46,7 +47,7 @@ cd omarchy-secrets && ./install.sh
 3. points rbw at Omarchy's password card (`bin/pinentry-omarchy`) and asks for your Bitwarden email if rbw has none;
 4. adds one marked line to `~/.bashrc` that loads `shell/secrets.bash`;
 5. creates `~/.config/fnox/config.toml` from `examples/fnox.toml` if you have none;
-6. puts the key in the bar's center, before Omarchy's indicators.
+6. puts the indicator in the bar's center, before Omarchy's indicators.
 
 Then:
 
@@ -76,7 +77,7 @@ The config holds only item names, never values, so it can live in a public dotfi
 ## How it works
 
 ```
-key in the bar ──► bin/secrets on ──► rbw unlock ──► fnox cache warm
+(x) in the bar ──► bin/secrets on ──► rbw unlock ──► fnox cache warm
                                   │      │
                                   │      └─► bin/pinentry-omarchy ──IPC──► Prompt.qml (password card)
                                   │                    ▲                          │
@@ -116,8 +117,8 @@ omarchy restart shell  # after QML changes; bin/ and shell/ changes apply at onc
 
 ## Troubleshooting
 
-- **The key doesn't react:** `secrets on` in a terminal shows the error the widget would. "Secrets need setup" lists what `install.sh` still has to do.
-- **No password card appears:** `omarchy-shell chickymonkeys.secrets pending x` should print `no`; if it errors, the key isn't in the bar (the card's service loads with it) or the shell needs `omarchy restart shell`.
+- **The indicator doesn't react:** `secrets on` in a terminal shows the error the widget would. "Secrets need setup" lists what `install.sh` still has to do.
+- **No password card appears:** `omarchy-shell chickymonkeys.secrets pending x` should print `no`; if it errors, the indicator isn't in the bar (the card's service loads with it) or the shell needs `omarchy restart shell`.
 - **A secret is missing:** `fnox get NAME` shows Bitwarden's error; item names are case-sensitive, and custom fields use `Item/Field`.
 
 ## License

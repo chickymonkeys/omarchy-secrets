@@ -4,7 +4,8 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
-// Omarchy Secrets: a key indicator that behaves like Omarchy's own (Stay Awake):
+// Omarchy Secrets: a variables indicator ((x), "secrets in your environment")
+// that behaves like Omarchy's own (Stay Awake):
 // shown while secrets are on, hidden while off until the bar's center section
 // is hovered, then dimmed and clickable. It pulses while Bitwarden waits for
 // the password. All logic lives in the `secrets` command, so the bar and the
@@ -111,7 +112,7 @@ BarWidget {
     indicatorHost: revealHost
     maintainIndicatorReveal: true
     active: root.enabled || root.pendingAction === "on"
-    activeText: "󰌆"
+    activeText: "󰫧"
     activeTooltipText: root.pendingAction === "on" ? "Waiting for your Bitwarden password…" : "Lock Secrets"
     inactiveTooltipText: root.pendingAction === "off" ? "Locking secrets…" : "Unlock Secrets"
     onPressed: function() { root.toggle() }

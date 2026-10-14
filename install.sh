@@ -230,7 +230,7 @@ fi
 if $ENABLE && command -v omarchy >/dev/null 2>&1 && ! in_bar; then
   if omarchy plugin enable "$PLUGIN_ID" --section center --before omarchy.indicators >/dev/null 2>&1 ||
     omarchy plugin enable "$PLUGIN_ID" --section center >/dev/null 2>&1; then
-    say "Added the key indicator to the bar (hover the bar's center to reveal it while off)"
+    say "Added the (x) indicator to the bar (hover the bar's center to reveal it while off)"
   else
     warn "Could not add the indicator to the bar: omarchy plugin enable $PLUGIN_ID"
   fi
@@ -245,4 +245,4 @@ if command -v rbw >/dev/null 2>&1 && ! compgen -G "${XDG_CACHE_HOME:-$HOME/.cach
   echo "    Log in to Bitwarden once:     rbw login"
 fi
 echo "    Choose what to share:         \$EDITOR $FNOX_CONFIG"
-echo "    Turn secrets on:              click the key in the bar, or: secrets on"
+echo "    Turn secrets on:              click (x) in the bar, or: secrets on"
