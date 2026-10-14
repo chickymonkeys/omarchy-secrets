@@ -19,8 +19,8 @@ CLI_LINK="$HOME/.local/bin/secrets"
 BASHRC="$HOME/.bashrc"
 FNOX_CONFIG="$HOME/.config/fnox/config.toml"
 MARKER=".secrets-install"
-COPIED=(manifest.json Secrets.qml bin shell examples install.sh LICENSE README.md)
-PACKAGES=(rbw pinentry-bemenu bemenu-wayland)
+COPIED=(manifest.json Secrets.qml Prompt.qml bin shell examples install.sh LICENSE README.md)
+PACKAGES=(rbw pinentry)
 BLOCK_START="# >>> omarchy-secrets >>>"
 BLOCK_END="# <<< omarchy-secrets <<<"
 MODE="install"
@@ -49,13 +49,18 @@ interactive() { [[ -t 0 && -t 1 ]]; }
 confirm() { interactive && command -v gum >/dev/null 2>&1 && gum confirm "$1"; }
 
 is_ours() {
-  # A symlink to a checkout with our manifest, or a copy this script made
+  # A symlink to a checkout with our manifest, a copy this script made, or an
+  # unmodified clone from `omarchy plugin add` (so --link can replace it)
   if [[ -L $PLUGIN_DIR ]]; then
     local target
     target="$(readlink -f "$PLUGIN_DIR")" || return 1
     grep -q "\"id\": \"$PLUGIN_ID\"" "$target/manifest.json" 2>/dev/null
+  elif [[ -f $PLUGIN_DIR/$MARKER ]]; then
+    return 0
   else
-    [[ -f $PLUGIN_DIR/$MARKER ]]
+    [[ -d $PLUGIN_DIR/.git ]] && grep -q "\"id\": \"$PLUGIN_ID\"" "$PLUGIN_DIR/manifest.json" 2>/dev/null &&
+      [[ -z "$(git -C "$PLUGIN_DIR" status --porcelain 2>/dev/null)" ]] &&
+      [[ -z "$(git -C "$PLUGIN_DIR" log --branches --not --remotes --oneline 2>/dev/null)" ]]
   fi
 }
 
@@ -137,8 +142,8 @@ else
     if is_ours; then
       if [[ -L $PLUGIN_DIR ]]; then rm "$PLUGIN_DIR"; else rm -rf "$PLUGIN_DIR"; fi
     else
-      warn "$PLUGIN_DIR exists and wasn't installed by this script (a git clone from 'omarchy plugin add'?)."
-      warn "Update it with: omarchy plugin update $PLUGIN_ID, then run $PLUGIN_DIR/install.sh"
+      warn "$PLUGIN_DIR exists and has local changes or wasn't installed by this script."
+      warn "Move it aside, or update it with: omarchy plugin update $PLUGIN_ID"
       exit 1
     fi
   fi
@@ -181,7 +186,9 @@ fi
 # --- Command, password prompt, shell -------------------------------------------
 
 mkdir -p "$(dirname "$CLI_LINK")"
-if [[ ! -e $CLI_LINK || ( -L $CLI_LINK && "$(readlink -f "$CLI_LINK")" == */bin/secrets ) ]]; then
+if [[ $(readlink "$CLI_LINK" 2>/dev/null) == "$PLUGIN_DIR/bin/secrets" ]]; then
+  : # already linked
+elif [[ ! -e $CLI_LINK || ( -L $CLI_LINK && "$(readlink -f "$CLI_LINK")" == */bin/secrets ) ]]; then
   ln -sfn "$PLUGIN_DIR/bin/secrets" "$CLI_LINK"
   say "Linked the secrets command: $CLI_LINK"
 else
@@ -192,7 +199,7 @@ if command -v rbw >/dev/null 2>&1; then
   pinentry="$PLUGIN_DIR/bin/pinentry-omarchy"
   if ! rbw config show 2>/dev/null | grep -qF "\"pinentry\": \"$pinentry\""; then
     rbw config set pinentry "$pinentry"
-    say "rbw now asks for your password with the themed prompt"
+    say "rbw now asks for your password in Omarchy's own password card"
   fi
   if ! rbw config show 2>/dev/null | grep -q '"email": "[^"]'; then
     if interactive && command -v gum >/dev/null 2>&1; then

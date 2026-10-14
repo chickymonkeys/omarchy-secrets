@@ -4,8 +4,9 @@ A key in the [Omarchy](https://omarchy.org) bar that turns your Bitwarden
 secrets on and off for terminals, CLIs, and coding agents.
 
 Secrets stay **off at every login**. Click the key, type your master password
-into a prompt themed like the rest of Omarchy, and every terminal you open, along
-with everything started from it, gets your API keys as environment variables.
+into Omarchy's own password card (the one it uses for polkit), and every
+terminal you open, along with everything started from it, gets your API keys as
+environment variables.
 Click again and they are gone: the vault locks, the cache is cleared, and open
 terminals drop them at their next prompt.
 
@@ -19,12 +20,16 @@ written to disk.
 | State | Bar | Terminals |
 | --- | --- | --- |
 | Off (every login) | hidden, like Omarchy's inactive indicators; hover the bar's center to reveal it dimmed | no secrets |
-| Unlocking | the key pulses while the password prompt is open | |
+| Unlocking | the key pulses; Omarchy's password card opens on the focused monitor | |
 | On | the key is shown | open and new terminals load the secrets at their next prompt |
 | Off again | hidden | open terminals unset them at their next prompt; running programs keep what they already have |
 
 - The tooltip says what a click does: **Unlock Secrets** or **Lock Secrets**.
-- Cancelling the password prompt (Esc) changes nothing and shows no error.
+- The card behaves like Omarchy's polkit prompt: a wrong password turns it red
+  and shakes it, with the attempt count above it ("attempt 2 of 3"); Esc
+  cancels quietly and changes nothing.
+- Notifications only appear when something needs your attention (an error, or
+  Bitwarden locking itself); the key appearing is the confirmation.
 - When rbw locks itself (its `lock_timeout`), the toggle turns off and tells
   you, so nothing ever asks for your password unprompted.
 - Everything the key does is also a command: `secrets on`, `secrets off`,
@@ -51,9 +56,9 @@ cd omarchy-secrets && ./install.sh
 
 `install.sh` is safe to run again; each step checks first. It:
 
-1. offers to install `rbw`, `pinentry-bemenu`, `bemenu-wayland` (`omarchy pkg add`) and fnox (`mise use -g fnox`);
+1. offers to install `rbw` and `pinentry` (`omarchy pkg add`) and fnox (`mise use -g fnox`);
 2. links the `secrets` command into `~/.local/bin`;
-3. points rbw at the themed password prompt (`bin/pinentry-omarchy`) and asks for your Bitwarden email if rbw has none;
+3. points rbw at Omarchy's password card (`bin/pinentry-omarchy`) and asks for your Bitwarden email if rbw has none;
 4. adds one marked line to `~/.bashrc` that loads `shell/secrets.bash`;
 5. creates `~/.config/fnox/config.toml` from `examples/fnox.toml` if you have none;
 6. puts the key in the bar's center, before Omarchy's indicators.
@@ -88,11 +93,22 @@ dotfiles repo.
 - `fnox get` or `fnox exec` while off asks for the password, because rbw unlocks
   on demand.
 - Apps launched from the launcher (not a terminal) never get the secrets.
+- **The password card:** rbw runs `bin/pinentry-omarchy`, which creates a FIFO
+  in a fresh `0700` directory under `$XDG_RUNTIME_DIR` (a tmpfs) and asks the
+  shell over IPC to show the card. The shell writes the answer into that FIFO
+  through a pipe, so the password never reaches disk, a command line, or the
+  environment, and the directory is removed straight after. The shell only
+  writes to FIFOs at that exact location. Like any desktop prompt, it trusts
+  other programs running as you.
 
 ## How it works
 
 ```
-key in the bar ──► bin/secrets on ──► rbw unlock (pinentry-omarchy) ──► fnox cache warm
+key in the bar ──► bin/secrets on ──► rbw unlock ──► fnox cache warm
+                                  │      │
+                                  │      └─► bin/pinentry-omarchy ──IPC──► Prompt.qml (password card)
+                                  │                    ▲                          │
+                                  │                    └──── FIFO in $XDG_RUNTIME_DIR
                                   └─► $XDG_RUNTIME_DIR/secrets-enabled
 
 every bash prompt ──► shell/secrets.bash: flag present? ──► fnox hook (export)
@@ -102,6 +118,21 @@ every bash prompt ──► shell/secrets.bash: flag present? ──► fnox hoo
 The flag lives in `$XDG_RUNTIME_DIR` (a tmpfs), which is why every login starts
 off. The widget polls `secrets status --json` every 4 seconds, so changes made
 from a terminal show up in the bar.
+
+The card is the plugin's service (`Prompt.qml`), so it answers every rbw
+prompt, not only the bar's: `rbw unlock` in a terminal, or `fnox exec` while
+off, get the same card. Without the shell (a TTY, SSH) the pinentry hands the
+question to the system `pinentry` instead.
+
+### Why rbw
+
+rbw keeps the vault key in a small agent, locks itself after `lock_timeout`, and
+asks for the password through any pinentry, which is what lets Omarchy draw the
+prompt. The official `bw` CLI needs a `BW_SESSION` token kept in the
+environment or a file and is slow to start, and Bitwarden Secrets Manager
+(`bws`) is a separate product for machine tokens, with its own access token to
+store. rbw is an unofficial client, so it lags new Bitwarden login methods
+(passkey-only accounts, for example).
 
 ## Update and uninstall
 
@@ -113,12 +144,23 @@ omarchy plugin update chickymonkeys.secrets && omarchy restart shell
 The shell has to restart to load a changed widget; `install.sh` does that on
 updates from a checkout. Uninstalling keeps your fnox config and rbw login.
 
+## Develop
+
+```sh
+git clone https://github.com/chickymonkeys/omarchy-secrets && cd omarchy-secrets
+./install.sh --link    # the plugin folder becomes a symlink to this checkout
+omarchy restart shell  # after QML changes; bin/ and shell/ changes apply at once
+```
+
+`--link` also replaces an unmodified clone made by `omarchy plugin add`.
+
 ## Troubleshooting
 
 - **The key doesn't react:** `secrets on` in a terminal shows the error the
   widget would. "Secrets need setup" lists what `install.sh` still has to do.
-- **No password prompt appears:** `rbw unlock` from a terminal; without a
-  Wayland session pinentry-omarchy falls back to a terminal prompt.
+- **No password card appears:** `omarchy-shell chickymonkeys.secrets pending x`
+  should print `no`; if it errors, the key isn't in the bar (the card's service
+  loads with it) or the shell needs `omarchy restart shell`.
 - **A secret is missing:** `fnox get NAME` shows Bitwarden's error; item names
   are case-sensitive, and custom fields use `Item/Field`.
 

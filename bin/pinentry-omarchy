@@ -1,36 +1,142 @@
 #!/bin/bash
 
-# Password prompt for rbw (Bitwarden), styled with the current Omarchy theme.
-# rbw-agent runs it as its `pinentry` and talks to it over the Assuan protocol
-# on stdin/stdout, so the password never touches disk or a command line.
+# rbw's password prompt, drawn by the Omarchy shell as the same card Omarchy
+# uses for polkit (Prompt.qml in this plugin).
 #
-# Colors are read from the active theme on every prompt, so it follows
-# `omarchy theme set` without regenerating anything.
+# rbw-agent runs this as its `pinentry` and speaks the Assuan pinentry protocol
+# on stdin/stdout. On GETPIN it creates a FIFO in a private directory under
+# $XDG_RUNTIME_DIR, asks the shell over IPC to show the card, and reads the
+# answer from the FIFO. The password never touches disk, a command line, or the
+# environment.
+#
+# Without the shell (a TTY, SSH, or the shell restarting) the same questions go
+# to the system pinentry instead.
 
-# No Wayland session (tty, SSH): fall back to a prompt in the terminal.
-if [[ -z $WAYLAND_DISPLAY ]] || ! command -v pinentry-bemenu &>/dev/null; then
-  exec pinentry-curses "$@"
-fi
+set -u
 
-color() { omarchy-theme-color "$1" "$2" 2>/dev/null || printf '%s' "$2"; }
+target="chickymonkeys.secrets"
+runtime="${XDG_RUNTIME_DIR:-/run/user/$UID}"
+export OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
+cancelled="ERR 83886179 Operation cancelled <Pinentry>"
 
-bg=$(color background "#1a1b26")
-fg=$(color foreground "#a9b1d6")
-accent=$(color accent "#7aa2f7")
-sel_bg=$(color selection_background "$bg")
-sel_fg=$(color selection_foreground "$fg")
-red=$(color red "#f7768e")
-font=$(fc-match -f '%{family[0]}' monospace 2>/dev/null)
+args=("$@")
+prompt="" description="" error="" error_raw=""
+session=() # setup lines to replay to the system pinentry
+reply=""   # FIFO of the request on screen
 
-exec pinentry-bemenu \
-  --center --monitor=focused --password=indicator --line-height=32 \
-  --fn="${font:-monospace} 12" \
-  --tb="$bg" --tf="$accent" \
-  --fb="$bg" --ff="$fg" \
-  --cb="$fg" --cf="$bg" \
-  --nb="$bg" --nf="$fg" \
-  --ab="$bg" --af="$fg" \
-  --hb="$sel_bg" --hf="$sel_fg" \
-  --sb="$sel_bg" --sf="$sel_fg" \
-  --fbb="$bg" --fbf="$red" \
-  "$@"
+ok() { printf 'OK%s\n' "${1:+ $1}"; }
+
+# Assuan percent-escaping: %0A, %25, ...
+decode() {
+  local text=${2//\\/\\\\}
+  printf -v "$1" '%b' "${text//%/\\x}"
+}
+
+shell() { omarchy-shell "$target" "$@" 2>/dev/null 3>&-; }
+
+cleanup() {
+  [[ -n $reply ]] || return 0
+  shell dismiss "$reply" >/dev/null
+  exec 3>&-
+  rm -rf "${reply%/reply}"
+  reply=""
+}
+trap cleanup EXIT
+trap 'exit 1' TERM HUP INT
+
+# Ask the shell. Returns 0 with $pin set, 1 when cancelled, 2 when the shell
+# can't show the card.
+ask_shell() {
+  command -v omarchy-shell &>/dev/null || return 2
+  local dir line waited=0
+  dir=$(mktemp -d "$runtime/secrets-pinentry.XXXXXX") || return 2
+  reply="$dir/reply"
+  if ! mkfifo -m 600 "$reply" || ! exec 3<>"$reply"; then
+    cleanup
+    return 2
+  fi
+
+  if [[ $(shell ask "$reply" "$prompt" "$description" "$error") != ok ]]; then
+    cleanup
+    return 2
+  fi
+
+  # Wait for the answer, checking now and then that the card is still up (the
+  # shell may have restarted). Give up after ten minutes.
+  until IFS= read -r -t 3 line <&3; do
+    ((waited += 3))
+    if ((waited >= 600)) || [[ $(shell pending "$reply") != yes ]]; then
+      IFS= read -r -t 0.2 line <&3 && break
+      cleanup
+      return 1
+    fi
+  done
+
+  exec 3>&-
+  rm -rf "$dir"
+  reply=""
+  [[ $line == ok:* ]] || return 1
+  pin=${line#ok:}
+}
+
+# The system pinentry, given the same setup lines; its D line is relayed as is.
+ask_system() {
+  local line answer=""
+  while IFS= read -r line; do
+    case $line in
+      "D "*) answer=$line ;;
+      ERR*) echo "$cancelled"; return ;;
+    esac
+  done < <({
+    printf '%s\n' "${session[@]}"
+    [[ -n $error_raw ]] && printf 'SETERROR %s\n' "$error_raw"
+    printf 'GETPIN\nBYE\n'
+  } | pinentry "${args[@]}" 2>/dev/null)
+  [[ -n $answer ]] && printf '%s\n' "$answer"
+  answer=""
+  ok
+}
+
+getpin() {
+  local pin=""
+  ask_shell
+  case $? in
+    0)
+      pin=${pin//%/%25}
+      pin=${pin//$'\r'/%0D}
+      pin=${pin//$'\n'/%0A}
+      printf 'D %s\n' "$pin"
+      ok
+      ;;
+    1) echo "$cancelled" ;;
+    *) ask_system ;;
+  esac
+  pin=""
+  error="" error_raw=""
+}
+
+ok "Pleased to meet you"
+
+while IFS= read -r line; do
+  command=${line%% *}
+  argument=""
+  [[ $line == *" "* ]] && argument=${line#* }
+
+  case ${command^^} in
+    SETPROMPT) decode prompt "$argument"; session+=("$line"); ok ;;
+    SETDESC) decode description "$argument"; session+=("$line"); ok ;;
+    SETERROR) decode error "$argument"; error_raw=$argument; ok ;;
+    GETPIN) getpin ;;
+    GETINFO)
+      case $argument in
+        pid) printf 'D %s\n' "$$" ;;
+        flavor) printf 'D omarchy\n' ;;
+        version) printf 'D 1.0.0\n' ;;
+      esac
+      ok
+      ;;
+    CONFIRM | MESSAGE) echo "ERR 83886149 Not implemented <Pinentry>" ;;
+    BYE) ok "closing connection"; exit 0 ;;
+    *) session+=("$line"); ok ;;
+  esac
+done
