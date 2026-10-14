@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Password prompt for rbw (Bitwarden), styled with the current Omarchy theme.
+# rbw-agent runs it as its `pinentry` and talks to it over the Assuan protocol
+# on stdin/stdout, so the password never touches disk or a command line.
+#
+# Colors are read from the active theme on every prompt, so it follows
+# `omarchy theme set` without regenerating anything.
+
+# No Wayland session (tty, SSH): fall back to a prompt in the terminal.
+if [[ -z $WAYLAND_DISPLAY ]] || ! command -v pinentry-bemenu &>/dev/null; then
+  exec pinentry-curses "$@"
+fi
+
+color() { omarchy-theme-color "$1" "$2" 2>/dev/null || printf '%s' "$2"; }
+
+bg=$(color background "#1a1b26")
+fg=$(color foreground "#a9b1d6")
+accent=$(color accent "#7aa2f7")
+sel_bg=$(color selection_background "$bg")
+sel_fg=$(color selection_foreground "$fg")
+red=$(color red "#f7768e")
+font=$(fc-match -f '%{family[0]}' monospace 2>/dev/null)
+
+exec pinentry-bemenu \
+  --center --monitor=focused --password=indicator --line-height=32 \
+  --fn="${font:-monospace} 12" \
+  --tb="$bg" --tf="$accent" \
+  --fb="$bg" --ff="$fg" \
+  --cb="$fg" --cf="$bg" \
+  --nb="$bg" --nf="$fg" \
+  --ab="$bg" --af="$fg" \
+  --hb="$sel_bg" --hf="$sel_fg" \
+  --sb="$sel_bg" --sf="$sel_fg" \
+  --fbb="$bg" --fbf="$red" \
+  "$@"

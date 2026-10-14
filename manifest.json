@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "chickymonkeys.secrets",
+  "name": "Secrets",
+  "version": "1.0.0",
+  "author": "Alessandro Pizzigolotto",
+  "license": "MIT",
+  "description": "A bar key that turns your Bitwarden secrets (rbw + fnox) on and off for terminals, CLIs, and agents. Off at every login.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Secrets.qml"
+  },
+  "barWidget": {
+    "displayName": "Secrets",
+    "description": "Bitwarden secrets for terminals and agents: click to unlock or lock. Hidden while off, like Omarchy's indicators.",
+    "category": "Status",
+    "aliases": [
+      "secrets",
+      "bitwarden",
+      "rbw",
+      "fnox",
+      "vault",
+      "keys"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "center",
+    "defaults": {},
+    "schema": []
+  }
+}

@@ -1,0 +1,36 @@
+#:schema https://fnox.jdx.dev/schema.json
+#
+# Starter fnox config for Omarchy Secrets: copy it to ~/.config/fnox/config.toml
+# (the installer does this when you have none) and list your secrets below.
+# It holds only Bitwarden item references, never secret values, so it is safe
+# to keep in a dotfiles repo.
+#
+# Values are "<item name>" (the password field) or "<item name>/<field>", where
+# field is username, password, notes, uri, totp, or a custom field name.
+
+# true: export into shells (while the Secrets toggle is on) and `fnox exec`.
+# Set `env = "exec"` on a secret to keep it out of shells.
+env = true
+if_missing = "warn"
+
+# In-memory cache shared by every shell, agent, and `fnox exec`, so Bitwarden
+# is read once per unlock. `secrets off` stops it.
+[daemon]
+enabled = true
+idle_timeout = "8h"
+
+# rbw keeps the vault key in rbw-agent (unlocked through pinentry-omarchy,
+# locked after rbw's lock_timeout), so no BW_SESSION lives in the environment.
+[providers.bitwarden]
+type = "bitwarden"
+backend = "rbw"
+
+# Agents that speak MCP (`fnox mcp`) may only run commands with these secrets;
+# they never get raw values back.
+[mcp]
+tools = ["exec"]
+redact_output = true
+
+[secrets]
+# OPENAI_API_KEY = { provider = "bitwarden", value = "OpenAI API" }
+# GITHUB_TOKEN = { provider = "bitwarden", value = "GitHub/token" }
